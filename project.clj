@@ -6,5 +6,6 @@
                  [ring/ring-jetty-adapter "0.3.11"]
                  [amalloy/ring-gzip-middleware "0.1.0"]
                  [compojure "0.6.5"]
-                 [org.clojure/tools.cli "0.1.0"]]
+                 [org.clojure/tools.cli "0.1.0"]
+                 [enlive "1.0.0"]]
   :main weekly-hn.core)
