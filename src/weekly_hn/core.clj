@@ -27,8 +27,7 @@
   (let [opts (cli args
                   (optional ["-j" "--jetty-port" :default 8080] #(Integer. %))
                   (optional ["-s" "--swank-port" :default 8081] #(Integer. %))
-                  (optional ["-ns" "--no-swank" :default false])
-                  )]
+                  (optional ["-ns" "--no-swank" :default false]))]
     (when-not (:no-swank opts)
       (swank.swank/start-server :port (:swank-port opts)))
     (run-jetty #'app {:port (:jetty-port opts)})))
