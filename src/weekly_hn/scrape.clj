@@ -109,9 +109,19 @@
 (defonce issue-archive (atom '()))
 (defonce work-set (atom {}))
 
-(defn latest-issue [] (first @issue-archive))
-(defn latest-stories [] (:stories (latest-issue)))
-(defn issue-in-progress [] (vals @work-set))
+(def latest-issue first)
+
+(defn latest-stories
+  ([] (latest-stories @issue-archive))
+  ([archive] (:stories latest-issue archive)))
+
+(defn work-set-filter-new [archive work-set]
+  (let [prev-ids (set (issue-ids (latest-issue archive)))]
+    (filter (fn [[id _]] (not (prev-ids id)))
+            work-set)))
+
+(defn issue-in-progress []
+  (vals (work-set-filter-new @issue-archive @work-set)))
 
 (defn archive-index []
   (map (comp (memfn getTime) :date) @issue-archive))
@@ -163,9 +173,7 @@
 ;; todo needs dosync?
 (defn cut-issue! [log-dir]
   (dosync
-   (let [prev-ids (set (issue-ids (latest-issue)))
-         work-set-all @work-set
-         work-set-new (filter (fn [[id _]] (not (prev-ids id))) work-set-all)
+   (let [work-set-new (work-set-filter-new @issue-archive @work-set)
          new-issue (work-set->issue work-set-new)]
      (swap! issue-archive conj new-issue)
      (reset! work-set {})
