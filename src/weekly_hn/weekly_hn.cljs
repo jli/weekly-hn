@@ -82,13 +82,13 @@
             (fn [e] (set-issue "issue in-progress" (event->clj e)))))
 
 (defn set-index [dates]
-  (let [wip (node "a" (.strobj {"href" "#"}) "in-progress issue")
+  (let [wip (node "a" (.strobj {"href" "#"}) "issue in-progress")
         items (map (fn [d]
                      (let [link (node "a" (.strobj {"href" "#"}) (render-date d))]
                        (events/listen link events/EventType.CLICK #(load-issue d))
                        (node "span" nil link)))
                    dates)
-        all (apply node "span" nil wip items)]
+        all (apply node "span" nil wip " " (interpose " " items))]
     (events/listen wip events/EventType.CLICK #(load-wip))
     (dom/insertChildAt (dom/getElement "index") all)))
 
