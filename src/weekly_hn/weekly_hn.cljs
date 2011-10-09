@@ -14,6 +14,7 @@
 (def html dom/htmlToDocumentFragment)
 (def node dom/createDom)
 (defn class [s] (.strobj {"class" s}))
+(defn href [url] (.strobj {"href" url}))
 
 (defn js-alert [& args]
   (let [msg (apply str args)]
@@ -49,9 +50,14 @@
                 (.replace #"/.+$" ""))]
     (node "span" (class "site") url)))
 
+(defn hn-link [id]
+  (str "https://news.ycombinator.com/item?id=" id))
+
 (defn render-story [{:keys [id link title points user comments]}]
-  (let [pnode (node "span" (class "points") (str points))
-        a (node "a" (.strobj {"href" link}) title)]
+  (let [pnode (node "a" (.strobj {"class" "points"
+                                  "href" (hn-link id)})
+                    (str points))
+        a (node "a" (href link) title)]
     (node "span" nil pnode " " a " " (render-site link))))
 
 

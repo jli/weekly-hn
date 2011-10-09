@@ -1,5 +1,6 @@
 <html><head><title>weekly hn</title>
 <style>
+body { background-color: #fafafa; }
 h1 { display: inline; font-size: inherit; }
 h2 { font-size: inherit; }
 #top {
@@ -21,11 +22,17 @@ h2 { font-size: inherit; }
   color: #666;
   padding-left: 0.2em;
 }
-#issue li { color: #999; }
-#issue .points { color: #f84; }
-a:link,a:visited { color: #111; text-decoration: none; }
-a:hover,a:focus { background-color: #f84;}
-a:active { color: #f84; background-color: #fff; }
+#issue li { color: #999; padding: 0.1em; }
+
+a:link, a:visited { color: #333; }
+a:hover, a:focus { color: #111; background-color: #f84; }
+a:active { color: #f84; background-color: #fafafa; }
+
+#issue a { text-decoration: none; }
+
+a.points:link, a.points:visited { color: #f84; }
+a.points:hover, a.points:focus { color: #111; background-color: #f84; }
+a.points:active { color: #111; background-color: #fafafa; }
 </style></head><body>
 
 <div id="top">
