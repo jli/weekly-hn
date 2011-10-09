@@ -119,9 +119,21 @@
   (let [[issue] (filter #(= date (:date %)) @issue-archive)]
     (:stories issue)))
 
+;; todo abstract better
 (defn backup-archive [log-dir msg-pre]
-  (try-log (spit (str log-dir "/archive.sexp") @issue-archive)
-           (str msg-pre ": backing up archive file sucked")))
+  (let [arc (map (fn [{:keys [date stories]}]
+                   {:date (.getTime date) :stories stories})
+                 @issue-archive)]
+    (try-log (spit (str log-dir "/archive.sexp") (prn-str arc))
+             (str msg-pre ": backing up archive file sucked"))))
+
+(defn load-archive [log-dir]
+  (->> (str log-dir "/archive.sexp")
+       slurp
+       read-string
+       (map (fn [{:keys [date stories]}]
+              {:date (java.util.Date. date)
+               :stories stories}))))
 
 (defn backup-work-set [log-dir msg-pre]
   (try-log (spit (str log-dir "/work-set.sexp") @work-set)
@@ -150,7 +162,7 @@
 ;; todo needs dosync?
 (defn cut-issue! [log-dir]
   (dosync
-   (let [prev-ids (set (issue-ids (latest-issue @issue-archive)))
+   (let [prev-ids (set (issue-ids (latest-issue)))
          work-set-all @work-set
          work-set-new (filter (fn [[id _]] (not (prev-ids id))) work-set-all)
          new-issue (work-set->issue work-set-new)]
