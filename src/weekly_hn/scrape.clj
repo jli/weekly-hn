@@ -28,7 +28,7 @@
 (def hn-rss (java.net.URL. "http://news.ycombinator.com"))
 
 ;; parsed into nodes
-(defn get-web [] (html-resource hn-rss))
+(defn get-web [] (safe (html-resource hn-rss) nil))
 (defn get-file [f] (-> f java.io.File. html-resource))
 
 
@@ -111,11 +111,12 @@
 
 (defn latest-issue [] (first @issue-archive))
 (defn latest-stories [] (:stories (latest-issue)))
+(defn issue-in-progress [] (vals @work-set))
 
 (defn archive-index []
   (map (comp (memfn getTime) :date) @issue-archive))
 
-(defn get-stories [date]
+(defn issue->stories [date]
   (let [[issue] (filter #(= date (:date %)) @issue-archive)]
     (:stories issue)))
 
@@ -171,10 +172,17 @@
      (backup-archive log-dir "cut-issue!")
      (backup-work-set log-dir "cut-issue!"))))
 
-(defn work-set-updater-loop [wait log-dir]
-  (-> (loop []
-        (fetch-and-update! log-dir)
-        (Thread/sleep wait)
-        (recur))
-      Thread.
-      .start))
+;; blah, really want to say "every week", "every 3 hours", etc.
+(defn do-every [wait f name]
+  (doto (Thread. (fn []
+                   (println name (java.util.Date.) "> doing")
+                   (f)
+                   (Thread/sleep wait)
+                   (recur)) name)
+    .start))
+
+(defn work-set-updater [log-dir]
+  (do-every (* 1000 60 15) #(fetch-and-update! log-dir) "work-set updater"))
+
+(defn issue-cutter [log-dir]
+  (do-every (* 1000 3600 24 7) #(cut-issue! log-dir) "issue cutter"))
