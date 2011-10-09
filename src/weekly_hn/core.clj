@@ -8,11 +8,15 @@
         [ring.middleware.gzip :only [wrap-gzip]]
         [clojure.tools.cli :only [cli optional]])
   (:require [swank.swank]
-            )
+            [weekly-hn.scrape :as scrape])
   (:gen-class))
 
 (defroutes base
   (GET "/love" [] (response "<3"))
+  (GET "/index" [] (response (prn-str (scrape/archive-index))))
+  (GET "/latest" [] (response (prn-str (scrape/latest-stories))))
+  (GET "/issue" [d] (response (-> d Long. java.util.Date.
+                                  scrape/get-stories prn-str)))
   (GET "/" [] (file-response "resources/public/index.html"))
   (resources "/")
   (ANY "*" [] (file-response "resources/public/index.html")))

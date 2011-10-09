@@ -93,7 +93,7 @@
 
 ;; work set type: id,story map
 ;; issue type: {:date <j.u.date>, :stories <story coll>}
-;; archive type: issue vector
+;; archive type: issue list
 
 (defn index-stories [stories] (index-with :id stories))
 
@@ -104,12 +104,20 @@
   {:date (java.util.Date.)
    :stories (vals work-set)})
 
-(def latest-issue peek)
-
 (defn issue-ids [issue] (map :id (:stories issue)))
 
-(defonce issue-archive (atom []))
+(defonce issue-archive (atom '()))
 (defonce work-set (atom {}))
+
+(defn latest-issue [] (first @issue-archive))
+(defn latest-stories [] (:stories (latest-issue)))
+
+(defn archive-index []
+  (map (comp (memfn getTime) :date) @issue-archive))
+
+(defn get-stories [date]
+  (let [[issue] (filter #(= date (:date %)) @issue-archive)]
+    (:stories issue)))
 
 (defn backup-archive [log-dir msg-pre]
   (try-log (spit (str log-dir "/archive.sexp") @issue-archive)
