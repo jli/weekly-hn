@@ -35,7 +35,7 @@
                   (optional ["-ns" "--no-swank" :default false])
                   (optional ["-d" "--data-dir" :default "store"])
                   (optional ["-w" "--wait" "how long between fetches (minutes)"
-                             :default 30] #(Float. %)))]
+                             :default 30.] #(Float. %)))]
     (when-not (:no-swank opts)
       (swank.swank/start-server :port (:swank-port opts)))
     (println "reloading data...")
