@@ -32,7 +32,17 @@
   (let [opts (cli args
                   (optional ["-j" "--jetty-port" :default 8080] #(Integer. %))
                   (optional ["-s" "--swank-port" :default 8081] #(Integer. %))
-                  (optional ["-ns" "--no-swank" :default false]))]
+                  (optional ["-ns" "--no-swank" :default false])
+                  (optional ["-d" "--data-dir" :default "store"])
+                  (optional ["-w" "--wait" "how long between fetches (minutes)"
+                             :default 30] #(Float. %)))]
     (when-not (:no-swank opts)
       (swank.swank/start-server :port (:swank-port opts)))
+    (println "reloading data...")
+    (scrape/reload-data (:data-dir opts))
+    (println "starting issue cutter...")
+    (scrape/issue-cutter (:data-dir opts))
+    (println "starting work-set updater...")
+    (scrape/work-set-updater (:data-dir opts) (:wait opts))
+    (println "starting jetty...")
     (run-jetty #'app {:port (:jetty-port opts)})))

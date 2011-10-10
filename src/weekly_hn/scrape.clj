@@ -106,8 +106,40 @@
 
 (defn issue-ids [issue] (map :id (:stories issue)))
 
+(defn archive-file [log-dir] (str log-dir "/archive.sexp"))
+(defn work-set-file [log-dir] (str log-dir "/work-set.sexp"))
+
+(defn load-archive [log-dir]
+  (->> (archive-file log-dir)
+       slurp
+       read-string
+       (map (fn [{:keys [date stories]}]
+              {:date (java.util.Date. date)
+               :stories stories}))))
+
+(defn load-work-set [log-dir]
+  (-> (work-set-file log-dir) slurp read-string))
+
 (defonce issue-archive (atom '()))
 (defonce work-set (atom {}))
+
+(defn reload-data [log-dir]
+  (reset! issue-archive (safe (load-archive log-dir) '()))
+  (reset! work-set (safe (load-work-set log-dir) {}))
+  (println "issue-archive:")
+  (doseq [{d :date} @issue-archive] (println " " d))
+  (println "work-set:" (sort (keys @work-set))))
+
+(defn backup-archive [log-dir msg-pre]
+  (let [arc (map (fn [{:keys [date stories]}]
+                   {:date (.getTime date) :stories stories})
+                 @issue-archive)]
+    (try-log (spit (archive-file log-dir) (prn-str arc))
+             (str msg-pre ": backing up archive file sucked"))))
+
+(defn backup-work-set [log-dir msg-pre]
+  (try-log (spit (work-set-file log-dir) @work-set)
+           (str msg-pre ": saving work-set")))
 
 (def latest-issue first)
 
@@ -130,33 +162,13 @@
   (let [[issue] (filter #(= date (:date %)) @issue-archive)]
     (:stories issue)))
 
-;; todo abstract better
-(defn backup-archive [log-dir msg-pre]
-  (let [arc (map (fn [{:keys [date stories]}]
-                   {:date (.getTime date) :stories stories})
-                 @issue-archive)]
-    (try-log (spit (str log-dir "/archive.sexp") (prn-str arc))
-             (str msg-pre ": backing up archive file sucked"))))
-
-(defn load-archive [log-dir]
-  (->> (str log-dir "/archive.sexp")
-       slurp
-       read-string
-       (map (fn [{:keys [date stories]}]
-              {:date (java.util.Date. date)
-               :stories stories}))))
-
-(defn backup-work-set [log-dir msg-pre]
-  (try-log (spit (str log-dir "/work-set.sexp") @work-set)
-           (str msg-pre ": saving work-set")))
-
-(defn file-path [type base-dir date]
-  (str base-dir "/" (format-date date) "." (name type)))
-
 ;; todo needs dosync?
 (defn fetch-and-update! [log-dir]
   (dosync
    (let [date (java.util.Date.)
+         file-path (fn [type]
+                     (format "%s/fetch/%s.%s"
+                             log-dir (format-date date) (name type)))
          raw-file (file-path :raw log-dir date)
          stories-file (file-path :stories log-dir date)
          raw (get-web)
@@ -181,16 +193,30 @@
      (backup-work-set log-dir "cut-issue!"))))
 
 ;; blah, really want to say "every week", "every 3 hours", etc.
-(defn do-every [wait f name]
-  (doto (Thread. (fn []
-                   (println name (java.util.Date.) "> doing")
-                   (f)
-                   (Thread/sleep wait)
-                   (recur)) name)
-    .start))
+(defn do-every [wait now? f name ]
+  (let [tfn (fn []
+              (when-not now?
+                (println "not now - waiting for" wait)
+                (Thread/sleep wait))
+              (loop []
+                (println (java.util.Date.) name "> doing")
+                (f)
+                (Thread/sleep wait)
+                (recur)))]
+   (doto (Thread. tfn name) .start)))
 
-(defn work-set-updater [log-dir]
-  (do-every (* 1000 60 15) #(fetch-and-update! log-dir) "work-set updater"))
+;; debugging
+(def work-set-thread (atom nil))
+(def issue-thread (atom nil))
+
+(defn work-set-updater [log-dir minutes]
+  (reset! work-set-thread
+          (do-every (* 1000 60 minutes) true
+                    #(fetch-and-update! log-dir)
+                    "work-set updater")))
 
 (defn issue-cutter [log-dir]
-  (do-every (* 1000 3600 24 7) #(cut-issue! log-dir) "issue cutter"))
+  (reset! issue-thread
+          (do-every (* 1000 3600 24 7) false
+                    #(cut-issue! log-dir)
+                    "issue cutter")))
