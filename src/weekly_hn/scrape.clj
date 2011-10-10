@@ -169,8 +169,8 @@
          file-path (fn [type]
                      (format "%s/fetch/%s.%s"
                              log-dir (format-date date) (name type)))
-         raw-file (file-path :raw log-dir date)
-         stories-file (file-path :stories log-dir date)
+         raw-file (file-path :raw)
+         stories-file (file-path :stories)
          raw (get-web)
          stories (stories raw)
          prev-count (count @work-set)]
