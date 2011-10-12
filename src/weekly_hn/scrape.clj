@@ -86,7 +86,7 @@
                     (re-matches #"([0-9]+) point.*")
                     second Integer.)
         user (text usera)
-        time (safe (parse-time-exn time) (Date.))
+        time (safe (parse-time time) (Date.))
         ;; can be "discuss" or something
         parse-int (fn [s] (safe (Integer. s) 0))
         comments (->> (text commenta)
