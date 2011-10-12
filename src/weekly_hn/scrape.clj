@@ -71,7 +71,8 @@
     ;; mutate cal
     (.add cal (cal-unit unit) (- n))
     (remove-precision! cal (cal-unit unit))
-    (.getTime cal)))
+    ;; cal -> date -> epoch ms
+    (.getTime (.getTime cal))))
 
 ;; what a mess!
 (defn parse-story [title subtext]
@@ -138,30 +139,45 @@
                       new))]
     (merge-with keep-time work-set (index-stories stories))))
 
-
+;; cut issue from current work-set!
 (defn work-set->issue [work-set]
-  {:date (Date.)
+  {:date (.getTime (Date.))
    :stories (vals work-set)})
 
-(defn issue-ids [issue] (map :id (:stories issue)))
+;; filters current work-set based on past archives
+;; currently, removes everything in last issue.
+;; not great. something based on scores or growth instead?
+(defn work-set-filter-new [archive work-set]
+  (let [issue-ids #(map :id (:stories %))
+        prev-ids (set (issue-ids (first archive)))]
+    (filter (fn [[id _]] (not (prev-ids id)))
+            work-set)))
+
+
+
+;;; serving interface, refs, files and junk
+
+;; todo horribly boiler-platey
 
 (defn archive-file [log-dir] (str log-dir "/archive.sexp"))
 (defn work-set-file [log-dir] (str log-dir "/work-set.sexp"))
 
 (defn load-archive [log-dir]
-  (->> (archive-file log-dir)
-       slurp
-       read-string
-       (map (fn [{:keys [date stories]}]
-              {:date (Date. date)
-               :stories stories}))))
-
+  (-> (archive-file log-dir) slurp read-string))
 (defn load-work-set [log-dir]
   (-> (work-set-file log-dir) slurp read-string))
 
 (defonce issue-archive (atom '()))
 (defonce work-set (atom {}))
 
+(defn backup-archive [log-dir msg-pre]
+  (try-log (spit (archive-file log-dir) (prn-str @issue-archive))
+           (str msg-pre ": backing up archive file sucked")))
+(defn backup-work-set [log-dir msg-pre]
+  (try-log (spit (work-set-file log-dir) @work-set)
+           (str msg-pre ": work-set failwhale")))
+
+;; run once at start-up
 (defn reload-data [log-dir]
   (reset! issue-archive (safe (load-archive log-dir) '()))
   (reset! work-set (safe (load-work-set log-dir) {}))
@@ -169,33 +185,13 @@
   (doseq [{d :date} @issue-archive] (println " " d))
   (println "work-set:" (sort (keys @work-set))))
 
-(defn backup-archive [log-dir msg-pre]
-  (let [arc (map (fn [{:keys [date stories]}]
-                   {:date (.getTime date) :stories stories})
-                 @issue-archive)]
-    (try-log (spit (archive-file log-dir) (prn-str arc))
-             (str msg-pre ": backing up archive file sucked"))))
-
-(defn backup-work-set [log-dir msg-pre]
-  (try-log (spit (work-set-file log-dir) @work-set)
-           (str msg-pre ": saving work-set")))
-
-(def latest-issue first)
-
-(defn latest-stories
-  ([] (latest-stories @issue-archive))
-  ([archive] (:stories latest-issue archive)))
-
-(defn work-set-filter-new [archive work-set]
-  (let [prev-ids (set (issue-ids (latest-issue archive)))]
-    (filter (fn [[id _]] (not (prev-ids id)))
-            work-set)))
+;; external interface
 
 (defn issue-in-progress []
   (vals (work-set-filter-new @issue-archive @work-set)))
 
 (defn archive-index []
-  (map (comp (memfn getTime) :date) @issue-archive))
+  (map :date @issue-archive))
 
 (defn issue->stories [date]
   (let [[issue] (filter #(= date (:date %)) @issue-archive)]
@@ -203,9 +199,10 @@
 
 
 
-;;; banging on stuff
+;;; update loops
 
-;; todo needs dosync?
+;; todo think about concurrency
+
 (defn fetch-and-update! [log-dir]
   (dosync
    (let [date (Date.)
@@ -225,7 +222,6 @@
      (try-log (spit stories-file (prn-str stories))
               "fetch-and-update!: saving stories was weird"))))
 
-;; todo needs dosync?
 (defn cut-issue! [log-dir]
   (dosync
    (let [work-set-new (work-set-filter-new @issue-archive @work-set)

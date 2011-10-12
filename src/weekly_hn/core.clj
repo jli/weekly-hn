@@ -14,7 +14,6 @@
 (defroutes base
   (GET "/love" [] (response "<3"))
   (GET "/index" [] (response (prn-str (scrape/archive-index))))
-  (GET "/latest" [] (response (prn-str (scrape/latest-stories))))
   (GET "/wip" [] (response (prn-str (scrape/issue-in-progress))))
   (GET "/issue" [d] (response (-> d Long. java.util.Date.
                                   scrape/issue->stories prn-str)))
