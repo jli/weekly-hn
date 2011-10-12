@@ -4,9 +4,10 @@
             ;; [goog.array :as array]
             [goog.net.XhrIo :as Xhr]
             [goog.events.EventType :as EventType]
+            [goog.Timer :as Timer]
             [goog.events :as events]
             [goog.date :as date]
-            [goog.Timer :as Timer]
+            [goog.string :as string]
             [cljs.reader :as reader]))
 
 ;;; utils
@@ -26,6 +27,9 @@
 (defn ms->date [ms]
   (doto (goog.date.Date.) (. (setTime ms))))
 
+(defn ms->datetime [ms]
+  (doto (goog.date.DateTime.) (. (setTime ms))))
+
 (defn uri-opts [m]
   (let [pairs (map (fn [[k v]] (str (name k) "=" (js/encodeURIComponent v))) m)]
     (apply str (interpose "&" pairs))))
@@ -41,6 +45,21 @@
 
 (defn render-date [ms] (.toIsoString (ms->date ms) true))
 
+;; oh god
+(defn render-post-time [ms]
+  (when ms
+    (let [pad #(string/padNumber % 2)
+          dt (ms->datetime ms)
+          mon (inc (. dt (getMonth)))
+          dayom (. dt (getDate))
+          hr    (. dt (getHours))
+          min   (. dt (getMinutes))
+          hrs  (when-not (zero? hr) (str " " (pad hr)))
+          mins (when-not (zero? min) (str ":" (pad min)))]
+      (node "span" (class "posttime") " "
+            (pad mon) "/" (pad dayom)
+            hrs mins))))
+
 (defn render-site [url]
    ;; hm, not sure why "\." not "\\."
   (let [base (nth (.exec #"^https?://(?:www\.)?([^/]+)" url) 1)]
@@ -48,12 +67,12 @@
 
 (defn hn-link [id] (str "https://news.ycombinator.com/item?id=" id))
 
-(defn render-story [{:keys [id link title points user comments]}]
+(defn render-story [{:keys [id link title points user comments time]}]
   (let [pnode (node "a" (.strobj {"class" "points"
                                   "href" (hn-link id)})
                     (str points))
         a (node "a" (href link) title)]
-    (node "span" nil pnode " " a " " (render-site link))))
+    (node "span" nil pnode " " a " " (render-site link) (render-post-time time))))
 
 (defn render-story-list [stories]
   (apply node "ol" (id "storylist")
