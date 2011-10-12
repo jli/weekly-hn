@@ -42,21 +42,50 @@
 ;; some stories are missing some info:
 ;;   Mixpanel is hiring: Here is where we're at.
 ;;   4 hours ago
-;; not sure what the deal is. let's just drop those.
+;; not sure what the deal is. just YC hiring? let's just drop those.
+
+(defn remove-precision! [cal unit]
+  (let [immed {Calendar/SECOND Calendar/MILLISECOND
+               Calendar/MINUTE Calendar/SECOND
+               Calendar/HOUR_OF_DAY Calendar/MINUTE
+               Calendar/DAY_OF_MONTH Calendar/HOUR_OF_DAY}
+        lessers (fn [unit]
+                  (take-while (comp not nil?)
+                              (iterate immed
+                                       (immed unit))))]
+    (doseq [smaller-unit (lessers unit)]
+      (.set cal smaller-unit 0))
+    cal))
+
+;; times get more imprecise over time (minute -> hour -> day)
+;; 1. reflect this by rounding back
+;; 2. preserve the time of the original story when merging (see
+;;    update-work-set below)
+(defn parse-time [s]
+  (let [cal-unit {"minute" Calendar/MINUTE
+                  "hour" Calendar/HOUR_OF_DAY ; _OF_DAY matters?
+                  "day" Calendar/DAY_OF_MONTH}
+        cal (Calendar/getInstance)
+        [_ n unit] (re-matches #"^ *([0-9]+) (minute|hour|day)s? ago.*$" s)
+        n (Integer. n)]
+    ;; mutate cal
+    (.add cal (cal-unit unit) (- n))
+    (remove-precision! cal (cal-unit unit))
+    (.getTime cal)))
 
 ;; what a mess!
-;; todo record
-(defn transform-story [title subtext]
+(defn parse-story [title subtext]
   (let [[a] (:content title)
         link (get-in a [:attrs :href])
         title (text a)
-        [pointspan _by usera _time commenta] (:content subtext)
+        [pointspan _by usera time commenta] (:content subtext)
         id (-> (get-in pointspan [:attrs :id]) ;; "score_13289"
                (.split "_") second Integer.)
         points (->> (text pointspan)
                     (re-matches #"([0-9]+) point.*")
                     second Integer.)
         user (text usera)
+        time (safe (parse-time-exn time) (Date.))
         ;; can be "discuss" or something
         parse-int (fn [s] (safe (Integer. s) 0))
         comments (->> (text commenta)
@@ -68,6 +97,7 @@
      :title title
      :points points
      :user user
+     :time time
      :comments comments}))
 
 ;; links and other data (points, user, comments, etc.) are not grouped :(
@@ -81,7 +111,8 @@
 ;; nodes -> stories coll
 (defn stories [node]
   (let [grouped (group-story-nodes node)
-        parses (map (fn [[link sub]] (safe (transform-story link sub) [:fail link sub]))
+        parses (map (fn [[link sub]]
+                      (safe (parse-story link sub) [:fail link sub]))
                     grouped)
         [fails stories] (split-with-all #(= :fail (first %)) parses)]
     ;; todo logging
@@ -99,7 +130,14 @@
 (defn index-stories [stories] (index-with :id stories))
 
 (defn update-work-set [work-set stories]
-  (merge work-set (index-stories stories)))
+  ;; keep time from older fetch, because new time values will be less
+  ;; precise (see parse-story, parse-time above)
+  (let [keep-time (fn [old new]
+                    (if-let [time (:time old)]
+                      (assoc new :time time)
+                      new))]
+    (merge-with keep-time work-set (index-stories stories))))
+
 
 (defn work-set->issue [work-set]
   {:date (Date.)
