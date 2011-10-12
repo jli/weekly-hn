@@ -1,5 +1,6 @@
 (ns weekly-hn.scrape
-  (:use [net.cgrand.enlive-html :only [html-resource text select]]))
+  (:use [net.cgrand.enlive-html :only [html-resource text select]])
+  (:import [java.util Calendar Date]))
 
 
 ;;; util
@@ -26,10 +27,10 @@
 (defn format-date [date] (.format formatter date))
 
 (def hn-rss (java.net.URL. "http://news.ycombinator.com"))
-
-;; parsed into nodes
 (defn get-web [] (safe (html-resource hn-rss) nil))
-(defn get-file [f] (-> f java.io.File. html-resource))
+
+(defn get-raw-file [f] (-> f java.io.File. html-resource))
+(defn get-file [f] (-> f java.io.File. slurp read-string))
 
 
 
@@ -101,7 +102,7 @@
   (merge work-set (index-stories stories)))
 
 (defn work-set->issue [work-set]
-  {:date (java.util.Date.)
+  {:date (Date.)
    :stories (vals work-set)})
 
 (defn issue-ids [issue] (map :id (:stories issue)))
@@ -114,7 +115,7 @@
        slurp
        read-string
        (map (fn [{:keys [date stories]}]
-              {:date (java.util.Date. date)
+              {:date (Date. date)
                :stories stories}))))
 
 (defn load-work-set [log-dir]
@@ -162,10 +163,14 @@
   (let [[issue] (filter #(= date (:date %)) @issue-archive)]
     (:stories issue)))
 
+
+
+;;; banging on stuff
+
 ;; todo needs dosync?
 (defn fetch-and-update! [log-dir]
   (dosync
-   (let [date (java.util.Date.)
+   (let [date (Date.)
          file-path (fn [type]
                      (format "%s/fetch/%s.%s"
                              log-dir (format-date date) (name type)))
@@ -199,7 +204,7 @@
                 (println "not now - waiting for" wait)
                 (Thread/sleep wait))
               (loop []
-                (println (java.util.Date.) name "> doing")
+                (println (Date.) name "> doing")
                 (f)
                 (Thread/sleep wait)
                 (recur)))]
