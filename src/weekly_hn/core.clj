@@ -15,8 +15,7 @@
   (GET "/love" [] (response "<3"))
   (GET "/index" [] (response (prn-str (scrape/archive-index))))
   (GET "/wip" [] (response (prn-str (scrape/issue-in-progress))))
-  (GET "/issue" [d] (response (-> d Long. java.util.Date.
-                                  scrape/issue->stories prn-str)))
+  (GET "/issue" [d] (response (-> d Long. scrape/issue->stories prn-str)))
   (GET "/" [] (file-response "resources/public/index.html"))
   (resources "/")
   (ANY "*" [] (file-response "resources/public/index.html")))
