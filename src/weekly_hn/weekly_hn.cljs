@@ -97,19 +97,18 @@
     (Xhr/send (str "/issue?d=" date)
               (fn [e]
                 (let [issue (event->clj e)]
-                  (swap! issue-cache conj [date issue])
-                  (f issue))))))
+                  (f issue)
+                  (swap! issue-cache conj [date issue]))))))
 
 (defn update-listing [limiter stories]
   (let [stories (take (.value limiter) stories)]
     (dom/replaceNode (render-story-list stories)
                      (dom/getElement "storylist"))))
 
-(defn set-issue [title raw-stories]
-  (let [stories (sort-by :points > raw-stories)
-        h2 (node "h2" nil title)
+(defn set-issue [title stories]
+  (let [h2 (node "h2" nil title)
         init-limit 10
-        limiter (render-limiter init-limit  (count stories) 10)
+        limiter (render-limiter init-limit (count stories) 10)
         listing (render-story-list (take init-limit stories))
         head (node "div" (class "head") h2 " " limiter)
         issue (node "div" nil head listing)]
@@ -118,7 +117,6 @@
     (dom/insertChildAt (dom/getElement "issue") issue)))
 
 (defn load-issue [date]
-  ;; (Xhr/send (str "/issue?d=" date) #(set-issue (render-date date) (event->clj %)))
   (with-issue date
     (fn [issue] (set-issue (render-date date) issue))))
 
