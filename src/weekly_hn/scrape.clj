@@ -68,11 +68,9 @@
         cal (Calendar/getInstance)
         [_ n unit] (re-matches #"^ *([0-9]+) (minute|hour|day)s? ago.*$" s)
         n (Integer. n)]
-    ;; mutate cal
     (.add cal (cal-unit unit) (- n))
     (remove-precision! cal (cal-unit unit))
-    ;; cal -> date -> epoch ms
-    (.getTime (.getTime cal))))
+    (.getTimeInMillis cal)))
 
 ;; what a mess!
 (defn parse-story [title subtext]
