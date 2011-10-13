@@ -24,6 +24,10 @@
   (let [msg (apply str args)]
     (js* "alert(~{msg})")))
 
+(def db (dom/getElement "dbug"))
+(defn dbg [& args]
+  (dom/insertChildAt db (html (apply str "<br>" (goog.date.DateTime.) "|" args))))
+
 (defn ms->date [ms]
   (doto (goog.date.Date.) (. (setTime ms))))
 
@@ -121,7 +125,10 @@
     (fn [issue] (set-issue (render-date date) issue))))
 
 (defn load-wip []
-  (Xhr/send (str "/wip") #(set-issue "issue in-progress" (event->clj %))))
+  (Xhr/send (str "/wip") #(do ;; (dbg "loaded. reading")
+                              (let [c (event->clj %)]
+                                ;; (dbg "read.")
+                                (set-issue "issue in-progress" c)))))
 
 (defn set-index [dates]
   (let [wip (doto (node "a" (href "#") "issue in-progress")
