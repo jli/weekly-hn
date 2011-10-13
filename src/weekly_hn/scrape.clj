@@ -1,6 +1,7 @@
 (ns weekly-hn.scrape
   (:use [net.cgrand.enlive-html :only [html-resource text select]])
-  (:import [java.util Calendar Date]))
+  (:import [java.util Calendar Date]
+           [java.util.concurrent TimeUnit]))
 
 
 ;;; util
@@ -229,31 +230,34 @@
      (backup-archive log-dir "cut-issue!")
      (backup-work-set log-dir "cut-issue!"))))
 
-;; blah, really want to say "every week", "every 3 hours", etc.
-(defn do-every [wait now? f name ]
-  (let [tfn (fn []
-              (when-not now?
-                (println "not now - waiting for" wait)
-                (Thread/sleep wait))
-              (loop []
-                (println (Date.) name "> doing")
-                (f)
-                (Thread/sleep wait)
-                (recur)))]
-   (doto (Thread. tfn name) .start)))
-
 ;; debugging
-(def work-set-thread (atom nil))
-(def issue-thread (atom nil))
+(def work-set-future (atom nil))
+(def issue-future (atom nil))
 
-(defn work-set-updater [log-dir minutes]
-  (reset! work-set-thread
-          (do-every (* 1000 60 minutes) true
-                    #(fetch-and-update! log-dir)
-                    "work-set updater")))
+(defn work-set-updater [log-dir sched-pool minutes]
+  (reset! work-set-future (.scheduleAtFixedRate
+                           sched-pool
+                           #(fetch-and-update! log-dir)
+                           0 ; start immediately
+                           minutes
+                           TimeUnit/MINUTES)))
 
-(defn issue-cutter [log-dir]
-  (reset! issue-thread
-          (do-every (* 1000 3600 24 7) false
-                    #(cut-issue! log-dir)
-                    "issue cutter")))
+(defn minutes-til-sunday []
+  (let [next (doto (Calendar/getInstance)
+               (.add Calendar/DAY_OF_MONTH 7)
+               (.set Calendar/DAY_OF_WEEK Calendar/SUNDAY)
+               (.set Calendar/HOUR 8)
+               (.set Calendar/MINUTE 30))
+        ms-diff (- (.getTimeInMillis next)
+                   (.getTime (Date.)))]
+    (.toMinutes TimeUnit/MILLISECONDS ms-diff)))
+
+(defn issue-cutter [log-dir sched-pool]
+  (let [init-delay (minutes-til-sunday)]
+    (println "waiting" init-delay "minutes before cutting issue")
+    (reset! issue-future (.scheduleAtFixedRate
+                          sched-pool
+                          #(cut-issue! log-dir)
+                          init-delay
+                          (.toMinutes TimeUnit/DAYS 7)
+                          TimeUnit/MINUTES))))
