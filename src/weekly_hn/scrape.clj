@@ -154,7 +154,7 @@
 
 
 
-;;; serving interface, refs, files and junk
+;;; refs, files and junk
 
 ;; todo horribly boiler-platey
 
@@ -184,17 +184,29 @@
   (doseq [{d :date} @issue-archive] (println " " d))
   (println "work-set:" (sort (keys @work-set))))
 
-;; external interface
+
+
+;;; external interface
 
 (defn issue-in-progress []
-  (vals (work-set-filter-new @issue-archive @work-set)))
+  (sort-by :points >
+           (vals (work-set-filter-new @issue-archive @work-set))))
 
 (defn archive-index []
   (map :date @issue-archive))
 
+;; all stories
 (defn issue->stories [date]
-  (let [[issue] (filter #(= date (:date %)) @issue-archive)]
-    (:stories issue)))
+  (let [[issue] (filter #(= date (:date %)) @issue-archive)
+        ;; drop unused data for mad speed? comments, user.
+        stories (:stories issue)]
+    ;; sort so that {take,drop}-issue-stories do sensible things
+    (sort-by :points > stories)))
+
+
+;; partial stories (faster loading)
+(defn take-issue-stories [date n] (take n (issue->stories date)))
+(defn drop-issue-stories [date n] (drop n (issue->stories date)))
 
 
 
