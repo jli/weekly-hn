@@ -70,12 +70,17 @@
     (node "span" (class "site") base)))
 
 (defn hn-link [id] (str "https://news.ycombinator.com/item?id=" id))
+(defn maybe-hn [link]
+  (href
+   (if (string/startsWith link "item?id=")
+     (str "https://news.ycombinator.com/" link)
+     link)))
 
 (defn render-story [{:keys [id link title points user comments time]}]
   (let [pnode (node "a" (.strobj {"class" "points"
                                   "href" (hn-link id)})
                     (str points))
-        a (node "a" (href link) title)]
+        a (node "a" (maybe-hn link) title)]
     (node "span" nil pnode " " a " " (render-site link) (render-post-time time))))
 
 (defn render-story-list [stories]
