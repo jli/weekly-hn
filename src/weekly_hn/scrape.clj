@@ -143,20 +143,67 @@
   {:date (.getTime (Date.))
    :stories (vals work-set)})
 
+;; filters current work-set based on past archives.
+;;
+;; removes everything that was in last issue unless it has become more
+;; "interesting". "interesting" is if story has gotten a lot more
+;; votes since last time, which would suggest it was low in last
+;; week's ranking and high(er) in this week's. actual test: needs to
+;; have a 20% increase in points (if this is "hard" because the story
+;; had a lot of points last week, that should have also given it a
+;; high rank).
+;;
+;; other possibilities:
+;; * still remove seen stories with >20% point increase if they were
+;;   in top 10(15?) stories last week.
+;; * only show if rank increased from <n to >n (say, 15 or 20)
+(defn work-set-filter-new [archive work-set]
+  (let [build-ids->scores (fn [stories]
+                            (into {} (map (juxt :id :points) stories)))
+        ids->prev-scores (build-ids->scores (:stories (first archive)))]
+    (filter (fn [[id {new-points :points}]]
+              (if-let [prev-points (ids->prev-scores id)]
+                (> (/ new-points prev-points) 1.2)
+                true)) ;; story wasn't in previous issue
+            work-set)))
+
 ;; filters current work-set based on past archives
 ;; currently, removes everything in last issue.
 ;; not great. something based on scores or growth instead?
-(defn work-set-filter-new [archive work-set]
+(defn work-set-filter-new-just-identity [archive work-set]
   (let [issue-ids #(map :id (:stories %))
         prev-ids (set (issue-ids (first archive)))]
     (filter (fn [[id _]] (not (prev-ids id)))
             work-set)))
+
+;; messy thing to compare different work-set filter functions
+(defn test-filter-fns []
+  (let [rank (fn [xs x] (inc (count (take-while (partial not= x) xs))))
+        ia @issue-archive
+        ws @work-set
+        most-recent-issue (index-stories (:stories (first ia)))
+        most-recent-stories-sort (map :id (sort-by :points > (:stories (first ia))))
+        prev-new (set (keys (work-set-filter-new-just-identity ia ws)))
+        new-new (work-set-filter-new ia ws)
+        new-stories-sort (map :id (sort-by :points > (vals new-new)))
+        only-new (filter #(not (prev-new (first %))) new-new)]
+    (doseq [s (vals only-new)]
+      (let [prev-p (:points (most-recent-issue (:id s)))]
+        (println
+         (format "%-50s %4d > %4d   inc %.2f %3d   rank %3d <- %2d"
+                 (apply str (take 50 (:title s)))
+                 (:points s) prev-p
+                 (float (/ (:points s) prev-p)) (- (:points s) prev-p)
+                 (rank new-stories-sort (:id s))
+                 (rank most-recent-stories-sort (:id s))
+                 ))))))
 
 
 
 ;;; refs, files and junk
 
 ;; todo horribly boiler-platey
+
 
 (defn archive-file [log-dir] (str log-dir "/archive.sexp"))
 (defn work-set-file [log-dir] (str log-dir "/work-set.sexp"))
