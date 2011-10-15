@@ -14,7 +14,6 @@ h2 { display: inline; font-size: inherit; }
   padding: 0.2em;
   overflow: auto;
 }
-#index { }
 #foot {
   margin-top:0.2em; /*boo*/
   float: right;
@@ -34,15 +33,16 @@ h2 { display: inline; font-size: inherit; }
   border-radius: 0.3em;
   padding: 0.1em;
 }
-
+/* man, I sure don't understand how these pseudoclasses work. stuff on :visited doesn't work like I expect. */
 a:link, a:visited { color: #333; }
-a:hover, a:focus { color: #111; background-color: #f84; }
+a:hover { color: #111; background-color: #f84; }
 a:active { color: #f84; background-color: #fafafa; }
 
-#issue a { text-decoration: none; }
+#issue a:link { text-decoration: none }
+#issue a:visited { color: #999; text-decoration: none }
 
 a.points:link, a.points:visited { color: #f62; }
-a.points:hover, a.points:focus { color: #111; background-color: #f84; }
+a.points:hover { color: #111; background-color: #f84; }
 a.points:active { color: #111; background-color: #fafafa; }
 </style></head><body>
 
