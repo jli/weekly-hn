@@ -250,6 +250,8 @@
 
 
 ;; partial stories (faster loading)
+(defn take-issue-in-progress [n] (take n (issue-in-progress)))
+(defn drop-issue-in-progress [n] (drop n (issue-in-progress)))
 (defn take-issue-stories [date n] (take n (issue->stories date)))
 (defn drop-issue-stories [date n] (drop n (issue->stories date)))
 

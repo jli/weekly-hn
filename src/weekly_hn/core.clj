@@ -15,6 +15,8 @@
   (GET "/love" [] (response "<3"))
   (GET "/index" [] (response (prn-str (scrape/archive-index))))
   (GET "/wip" [] (response (prn-str (scrape/issue-in-progress))))
+  (GET "/wip-take" [n] (response (prn-str (scrape/take-issue-in-progress (Integer. n)))))
+  (GET "/wip-drop" [n] (response (prn-str (scrape/drop-issue-in-progress (Integer. n)))))
   (GET "/issue" [d] (response (-> d Long. scrape/issue->stories prn-str)))
   (GET "/issue-take" [d n]
        (response (prn-str (scrape/take-issue-stories (Long. d) (Integer. n)))))
