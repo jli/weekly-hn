@@ -177,14 +177,12 @@
             work-set)))
 
 ;; messy thing to compare different work-set filter functions
-(defn test-filter-fns []
+(defn test-filter-fns [archive work-set]
   (let [rank (fn [xs x] (inc (count (take-while (partial not= x) xs))))
-        ia @issue-archive
-        ws @work-set
-        most-recent-issue (index-stories (:stories (first ia)))
-        most-recent-stories-sort (map :id (sort-by :points > (:stories (first ia))))
-        prev-new (set (keys (work-set-filter-new-just-identity ia ws)))
-        new-new (work-set-filter-new ia ws)
+        most-recent-issue (index-stories (:stories (first archive)))
+        most-recent-stories-sort (map :id (sort-by :points > (:stories (first archive))))
+        prev-new (set (keys (work-set-filter-new-just-identity archive work-set)))
+        new-new (work-set-filter-new archive work-set)
         new-stories-sort (map :id (sort-by :points > (vals new-new)))
         only-new (filter #(not (prev-new (first %))) new-new)]
     (doseq [s (vals only-new)]
