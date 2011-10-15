@@ -93,12 +93,14 @@
 
 ;;; thundercats are go
 
+(def spectatoritis-is-a-cancer 50)
+
 (def issue-cache (atom {}))
 
 (defn with-issue [date f]
   (if-let [issue (get @issue-cache date)]
     (f issue)
-    (Xhr/send (str "/issue?d=" date)
+    (Xhr/send (str "/issue-take?d=" date "&n=" spectatoritis-is-a-cancer)
               (fn [e]
                 (let [issue (event->clj e)]
                   (f issue)
@@ -124,11 +126,10 @@
   (with-issue date
     (fn [issue] (set-issue (render-date date) issue))))
 
+;; 30, hard limit. don't forget to live.
 (defn load-wip []
-  (Xhr/send (str "/wip") #(do ;; (dbg "loaded. reading")
-                              (let [c (event->clj %)]
-                                ;; (dbg "read.")
-                                (set-issue "issue in-progress" c)))))
+  (Xhr/send (str "/wip-take?n=" spectatoritis-is-a-cancer)
+            #(set-issue "issue in-progress" (event->clj %))))
 
 (defn set-index [dates]
   (let [wip (doto (node "a" (href "#") "issue in-progress")
