@@ -142,13 +142,17 @@
   ([date-or-wip push-state?]
      (with-issue date-or-wip (partial set-issue date-or-wip push-state?))))
 
+(defn load-issue-handler [date-or-wip event]
+  (. event (preventDefault))
+  (load-issue date-or-wip))
+
 (defn set-index [dates]
-  (let [wip (doto (node "button" nil "issue in-progress")
-              (events/listen events/EventType.CLICK #(load-issue :wip)))
+  (let [wip (doto (node "a" (href "iip") "issue in-progress")
+              (events/listen events/EventType.CLICK #(load-issue-handler :wip %)))
         items (map (fn [d]
                      (let [date (render-date d)
-                           link (node "button" nil date)]
-                       (events/listen link events/EventType.CLICK #(load-issue d))
+                           link (node "a" (href date) date)]
+                       (events/listen link events/EventType.CLICK #(load-issue-handler d %))
                        (node "span" nil link)))
                    dates)
         all (apply node "span" nil wip " " (interpose " " items))]
