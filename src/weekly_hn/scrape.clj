@@ -157,14 +157,23 @@
 ;; * still remove seen stories with >20% point increase if they were
 ;;   in top 10(15?) stories last week.
 ;; * only show if rank increased from <n to >n (say, 15 or 20)
-(defn work-set-filter-new [archive work-set]
+(defn work-set-filter-new-points-increase [archive work-set p]
   (let [build-ids->scores (fn [stories]
                             (into {} (map (juxt :id :points) stories)))
         ids->prev-scores (build-ids->scores (:stories (first archive)))]
     (filter (fn [[id {new-points :points}]]
               (if-let [prev-points (ids->prev-scores id)]
-                (> (/ new-points prev-points) 1.2)
+                (> (/ new-points prev-points) p)
                 true)) ;; story wasn't in previous issue
+            work-set)))
+
+(defn work-set-filter-new-not-in-top-n [archive work-set n]
+  (let [top-n-prev (->> (:stories (first archive))
+                         (sort-by :points >)
+                         (take n)
+                         (map :id)
+                         set)]
+    (filter (fn [[id _]] (not (top-n-prev id)))
             work-set)))
 
 ;; filters current work-set based on past archives
@@ -182,7 +191,7 @@
         most-recent-issue (index-stories (:stories (first archive)))
         most-recent-stories-sort (map :id (sort-by :points > (:stories (first archive))))
         prev-new (set (keys (work-set-filter-new-just-identity archive work-set)))
-        new-new (work-set-filter-new archive work-set)
+        new-new (work-set-filter-new-not-in-top-n archive work-set 50)
         new-stories-sort (map :id (sort-by :points > (vals new-new)))
         only-new (filter #(not (prev-new (first %))) new-new)]
     (doseq [s (vals only-new)]
@@ -195,6 +204,9 @@
                  (rank new-stories-sort (:id s))
                  (rank most-recent-stories-sort (:id s))
                  ))))))
+
+(defn work-set-filter-new [archive work-set]
+  (work-set-filter-new-not-in-top-n archive work-set 50))
 
 
 
