@@ -311,8 +311,8 @@
                    (.getTime (Date.)))]
     (.toMinutes TimeUnit/MILLISECONDS ms-diff)))
 
-(defn issue-cutter [log-dir sched-pool]
-  (let [init-delay (minutes-til-sunday)]
+(defn issue-cutter [log-dir sched-pool now?]
+  (let [init-delay (if now? 0 (minutes-til-sunday))]
     (println "waiting" init-delay "minutes before cutting issue")
     (reset! issue-future (.scheduleAtFixedRate
                           sched-pool

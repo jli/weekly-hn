@@ -39,14 +39,15 @@
                   (optional ["-ns" "--no-swank" :default false])
                   (optional ["-d" "--data-dir" :default "store"])
                   (optional ["-w" "--wait" "how long between fetches (minutes)"
-                             :default 30.] #(Float. %)))]
+                             :default 30.] #(Float. %))
+                  (optional ["-n" "--now" "cut issue now?" :default false]))]
     (let [sched-pool (java.util.concurrent.ScheduledThreadPoolExecutor. 2)]
       (when-not (:no-swank opts)
         (swank.swank/start-server :port (:swank-port opts)))
       (println "reloading data...")
       (scrape/reload-data (:data-dir opts))
       (println "starting issue cutter...")
-      (scrape/issue-cutter (:data-dir opts) sched-pool)
+      (scrape/issue-cutter (:data-dir opts) sched-pool (:now opts))
       (println "starting work-set updater...")
       (scrape/work-set-updater (:data-dir opts) sched-pool (:wait opts))
       (println "starting jetty...")
