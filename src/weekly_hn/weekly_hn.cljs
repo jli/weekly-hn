@@ -121,29 +121,33 @@
     (dom/replaceNode (render-story-list stories)
                      (dom/getElement "storylist"))))
 
-(defn set-issue [title stories]
-  (let [h2 (node "h2" nil title)
+(defn set-issue [date-or-wip push-state? stories]
+  (let [title (if (= :wip date-or-wip) "issue in-progress" (render-date date-or-wip))
+        url (if (= :wip date-or-wip) "iip" (render-date date-or-wip))
+        h2 (node "h2" nil title)
         init-limit 10
         limiter (render-limiter init-limit (count stories) 10)
         listing (render-story-list (take init-limit stories))
         head (node "div" (class "head") h2 " " limiter)
         issue (node "div" nil head listing)]
+    ;; state is simply date-or-wip, used to call load-issue again
+    (when push-state?
+      (.pushState window.history date-or-wip "" (str "/" url)))
     (events/listen limiter events/EventType.CHANGE #(update-listing limiter stories))
     (dom/removeChildren (dom/getElement "issue"))
     (dom/insertChildAt (dom/getElement "issue") issue)))
 
-(defn load-issue [date]
-  (with-issue date (partial set-issue (render-date date))))
-
-(defn load-wip []
-  (with-issue :wip (partial set-issue "issue in-progress")))
+(defn load-issue
+  ([date-or-wip] (load-issue date-or-wip true))
+  ([date-or-wip push-state?]
+     (with-issue date-or-wip (partial set-issue date-or-wip push-state?))))
 
 (defn set-index [dates]
-  (let [wip (doto (node "a" (href "#iip") "issue in-progress")
-              (events/listen events/EventType.CLICK #(load-wip)))
+  (let [wip (doto (node "button" nil "issue in-progress")
+              (events/listen events/EventType.CLICK #(load-issue :wip)))
         items (map (fn [d]
                      (let [date (render-date d)
-                           link (node "a" (href (str "#" date)) date)]
+                           link (node "button" nil date)]
                        (events/listen link events/EventType.CLICK #(load-issue d))
                        (node "span" nil link)))
                    dates)
@@ -157,13 +161,14 @@
                          (k in)))))
 
 (defn ^:export rock-and-roll []
-  (let [hash (.hash (.location (js* "window")))
-        hash (.replace hash #"^#" "")
+  (let [loc (.replace window.location.pathname #"^/" "")
         index-k (fn [index]
                   (let [date->ms (index-with render-date index)]
                     (cond
-                     (= hash "iip") (load-wip)
-                     :default (if-let [date-ms (date->ms hash)]
+                     (= loc "iip") (load-issue :wip)
+                     :default (if-let [date-ms (date->ms loc)]
                                 (load-issue date-ms)
-                                (load-issue (first index))))))]
+                                (load-issue (first index))))))
+        popstate (fn [e] (load-issue (.state e) false))]
+    (js* "window['onpopstate'] = ~{popstate}")
     (load-index index-k)))
