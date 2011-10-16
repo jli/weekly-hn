@@ -88,10 +88,8 @@
          (map (fn [s] (node "li" nil (render-story s))) stories)))
 
 (defn render-limiter [start total step]
-  (let [;; filter total because total would be same as "all" added later
-        limits (filter (partial not= total) (range start total step))
-        opts (snoc (map #(node "option" (.strobj {"value" %}) (str %)) limits)
-                   (node "option" (.strobj {"value" total}) "all"))]
+  (let [limits (snoc (range start total step) total)
+        opts (map #(node "option" (.strobj {"value" %}) (str %)) limits)]
      (apply node "select" (class "limiter") opts)))
 
 
