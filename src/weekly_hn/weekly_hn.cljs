@@ -20,6 +20,9 @@
 
 (defn snoc [xs x] (concat xs [x]))
 
+(defn index-with [f xs]
+  (reduce (fn [ac x] (assoc ac (f x) x)) {} xs))
+
 (defn js-alert [& args]
   (let [msg (apply str args)]
     (js* "alert(~{msg})")))
@@ -96,18 +99,22 @@
 
 ;;; thundercats are go
 
+;; 50, hard limit. don't forget to live.
 (def spectatoritis-is-a-cancer 50)
 
 (def issue-cache (atom {}))
 
-(defn with-issue [date f]
-  (if-let [issue (get @issue-cache date)]
+(defn with-issue [date-or-wip f]
+  (if-let [issue (get @issue-cache date-or-wip)]
     (f issue)
-    (Xhr/send (str "/issue-take?d=" date "&n=" spectatoritis-is-a-cancer)
-              (fn [e]
-                (let [issue (event->clj e)]
-                  (f issue)
-                  (swap! issue-cache conj [date issue]))))))
+    (let [url (if (= date-or-wip :wip)
+                (str "/wip-take?n=" spectatoritis-is-a-cancer)
+                (str "/issue-take?d=" date-or-wip "&n=" spectatoritis-is-a-cancer))]
+      (Xhr/send url
+                (fn [e]
+                  (let [issue (event->clj e)]
+                    (f issue)
+                    (swap! issue-cache conj [date-or-wip issue])))))))
 
 (defn update-listing [limiter stories]
   (let [stories (take (.value limiter) stories)]
@@ -126,30 +133,37 @@
     (dom/insertChildAt (dom/getElement "issue") issue)))
 
 (defn load-issue [date]
-  (with-issue date
-    (fn [issue] (set-issue (render-date date) issue))))
+  (with-issue date (partial set-issue (render-date date))))
 
-;; 30, hard limit. don't forget to live.
 (defn load-wip []
-  (Xhr/send (str "/wip-take?n=" spectatoritis-is-a-cancer)
-            #(set-issue "issue in-progress" (event->clj %))))
+  (with-issue :wip (partial set-issue "issue in-progress")))
 
 (defn set-index [dates]
-  (let [wip (doto (node "a" (href "#") "issue in-progress")
+  (let [wip (doto (node "a" (href "#iip") "issue in-progress")
               (events/listen events/EventType.CLICK #(load-wip)))
         items (map (fn [d]
-                     (let [link (node "a" (href "#") (render-date d))]
+                     (let [date (render-date d)
+                           link (node "a" (href (str "#" date)) date)]
                        (events/listen link events/EventType.CLICK #(load-issue d))
                        (node "span" nil link)))
                    dates)
         all (apply node "span" nil wip " " (interpose " " items))]
     (dom/insertChildAt (dom/getElement "index") all)))
 
-(defn ^:export kickoff []
-  (Xhr/send "/index"
-            (fn [e]
-              (let [index (event->clj e)]
-                (if-let [latest (first index)]
-                  (load-issue latest)
-                  (load-wip))
-                (set-index index)))))
+(defn load-index [k]
+  (Xhr/send "/index" (fn [e]
+                       (let [in (event->clj e)]
+                         (set-index in)
+                         (k in)))))
+
+(defn ^:export rock-and-roll []
+  (let [hash (.hash (.location (js* "window")))
+        hash (.replace hash #"^#" "")
+        index-k (fn [index]
+                  (let [date->ms (index-with render-date index)]
+                    (cond
+                     (= hash "iip") (load-wip)
+                     :default (if-let [date-ms (date->ms hash)]
+                                (load-issue date-ms)
+                                (load-issue (first index))))))]
+    (load-index index-k)))
