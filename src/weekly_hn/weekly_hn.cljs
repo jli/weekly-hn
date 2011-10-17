@@ -175,7 +175,9 @@
                      (= loc "iip") (load-issue :wip)
                      :default (if-let [date-ms (date->ms loc)]
                                 (load-issue date-ms)
-                                (load-issue (first index))))))
+                                (if-let [latest (first index)]
+                                  (load-issue latest)
+                                  (load-issue :wip))))))
         popstate (fn [e] (load-issue (.state e) false))]
     (when (js* "window['onpopstate']")
       (js* "window['onpopstate'] = ~{popstate}"))
