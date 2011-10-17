@@ -121,6 +121,8 @@
     (dom/replaceNode (render-story-list stories)
                      (dom/getElement "storylist"))))
 
+;; mess. set-issue should just build and render. history pushing,
+;; event.preventDefault, etc. should happen elsewhere.
 (defn set-issue [date-or-wip push-state? stories]
   (let [title (if (= :wip date-or-wip) "issue in-progress" (render-date date-or-wip))
         url (if (= :wip date-or-wip) "iip" (render-date date-or-wip))
@@ -131,7 +133,8 @@
         head (node "div" (class "head") h2 " " limiter)
         issue (node "div" nil head listing)]
     ;; state is simply date-or-wip, used to call load-issue again
-    (when push-state?
+    (when (and push-state?
+               (.pushState window.history))
       (.pushState window.history date-or-wip "" (str "/" url)))
     (events/listen limiter events/EventType.CHANGE #(update-listing limiter stories))
     (dom/removeChildren (dom/getElement "issue"))
@@ -174,5 +177,6 @@
                                 (load-issue date-ms)
                                 (load-issue (first index))))))
         popstate (fn [e] (load-issue (.state e) false))]
-    (js* "window['onpopstate'] = ~{popstate}")
+    (when (js* "window['onpopstate']")
+      (js* "window['onpopstate'] = ~{popstate}"))
     (load-index index-k)))
