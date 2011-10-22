@@ -104,17 +104,30 @@
 
 (def issue-cache (atom {}))
 
-(defn with-issue [date-or-wip f]
-  (if-let [issue (get @issue-cache date-or-wip)]
-    (f issue)
-    (let [url (if (= date-or-wip :wip)
-                (str "/wip-take?n=" spectatoritis-is-a-cancer)
-                (str "/issue-take?d=" date-or-wip "&n=" spectatoritis-is-a-cancer))]
-      (Xhr/send url
-                (fn [e]
-                  (let [issue (event->clj e)]
-                    (f issue)
-                    (swap! issue-cache conj [date-or-wip issue])))))))
+;; nil limit means unlimited
+(defn with-issue
+  ([date-or-wip f] (with-issue date-or-wip f spectatoritis-is-a-cancer))
+  ([date-or-wip f limit]
+     (let [url (if (nil? limit)
+                 (if (= date-or-wip :wip)
+                   "/wip"
+                   (str "/issue?d=" date-or-wip))
+                 (if (= date-or-wip :wip)
+                   (str "/wip-take?n=" limit)
+                   (str "/issue-take?d=" date-or-wip "&n=" limit)))
+           fetch #(Xhr/send url (fn [e]
+                                  (let [issue (event->clj e)]
+                                    (f issue)
+                                    (swap! issue-cache conj [date-or-wip [issue limit]]))))]
+       (if-let [[issue issue-limit] (get @issue-cache date-or-wip)]
+         (cond (= limit issue-limit) (f issue)
+               ;; cached issue has everything
+               (or (nil? issue-limit)
+                   ;; or current request is less than what we've got
+                   (and (not (nil? limit))
+                        (> issue-limit limit))) (f (take limit issue))
+               :default (fetch))
+         (fetch)))))
 
 (defn update-listing [limiter stories]
   (let [stories (take (.value limiter) stories)]
@@ -127,16 +140,17 @@
   (let [title (if (= :wip date-or-wip) "issue in-progress" (render-date date-or-wip))
         url (if (= :wip date-or-wip) "iip" (render-date date-or-wip))
         h2 (node "h2" nil title)
-        init-limit 10
-        limiter (render-limiter init-limit (count stories) 10)
-        listing (render-story-list (take init-limit stories))
-        head (node "div" (class "head") h2 " " limiter)
+        listing (render-story-list stories)
+        flood (node "button" (class "flood") "terrible flood")
+        head (node "div" (class "head") h2 flood)
         issue (node "div" nil head listing)]
     ;; state is simply date-or-wip, used to call load-issue again
     (when (and push-state?
                (.pushState window.history))
       (.pushState window.history date-or-wip "" (str "/" url)))
-    (events/listen limiter events/EventType.CHANGE #(update-listing limiter stories))
+    (events/listen flood events/EventType.CLICK
+                   (fn [_]
+                     (with-issue date-or-wip (partial set-issue date-or-wip false) nil)))
     (dom/removeChildren (dom/getElement "issue"))
     (dom/insertChildAt (dom/getElement "issue") issue)))
 
