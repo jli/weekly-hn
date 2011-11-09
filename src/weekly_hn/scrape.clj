@@ -14,14 +14,13 @@
      (let [e (gensym)]
        `(try ~exp (catch Exception ~e ~val)))))
 
-(defmacro try-log [exp msg]
-  (let [e (gensym)]
-    `(try ~exp (catch Exception ~e (println ~msg ":->" ~e)))))
-
-;; todo use this thing
 (defn log [& strs]
   (apply println (str (.toString (java.util.Date.)) ">")
          strs))
+
+(defmacro try-log [exp msg]
+  (let [e (gensym)]
+    `(try ~exp (catch Exception ~e (log ~msg ":->" ~e)))))
 
 (defn split-with-all [p? xs]
   [(filter p? xs)
@@ -121,8 +120,7 @@
                       (safe (parse-story link sub) [:fail link sub]))
                     grouped)
         [fails stories] (split-with-all #(= :fail (first %)) parses)]
-    ;; todo logging
-    (when-not (empty? fails) (println "failed:" fails))
+    (when-not (empty? fails) (log "failed:" fails))
     stories))
 
 
@@ -245,9 +243,9 @@
 (defn reload-data [log-dir]
   (reset! issue-archive (safe (load-archive log-dir) '()))
   (reset! work-set (safe (load-work-set log-dir) {}))
-  (println "issue-archive:")
+  (log "issue-archive:")
   (doseq [{d :date} @issue-archive] (println " " d))
-  (println "work-set:" (sort (keys @work-set))))
+  (log "work-set:" (sort (keys @work-set))))
 
 
 
@@ -285,7 +283,7 @@
          stories (stories raw)
          prev-count (count @work-set)]
      (swap! work-set update-work-set stories)
-     (println "updated working set." prev-count "->" (count @work-set))
+     (log "updated working set." prev-count "->" (count @work-set))
      (backup-work-set log-dir "fetch-and-update!")
      (try-log (spit raw-file (prn-str raw))
               "fetch-and-update!: saving raw was weird")
@@ -325,7 +323,7 @@
 
 (defn issue-cutter [log-dir sched-pool now?]
   (let [init-delay (if now? 0 (minutes-til-sunday))]
-    (println "waiting" init-delay "minutes before cutting issue")
+    (log "waiting" init-delay "minutes before cutting issue")
     (reset! issue-future (.scheduleAtFixedRate
                           sched-pool
                           #(cut-issue! log-dir)
