@@ -218,9 +218,6 @@
 
 ;;; refs, files and junk
 
-;; todo horribly boiler-platey
-
-
 (defn archive-file [log-dir] (str log-dir "/archive.sexp"))
 (defn work-set-file [log-dir] (str log-dir "/work-set.sexp"))
 
@@ -229,8 +226,8 @@
 (defn load-work-set [log-dir]
   (-> (work-set-file log-dir) slurp read-string))
 
-(defonce issue-archive (atom '()))
-(defonce work-set (atom {}))
+(defonce issue-archive (ref '()))
+(defonce work-set (ref {}))
 
 (defn backup-archive [log-dir msg-pre]
   (try-log (spit (archive-file log-dir) (prn-str @issue-archive))
@@ -241,11 +238,12 @@
 
 ;; run once at start-up
 (defn reload-data [log-dir]
-  (reset! issue-archive (safe (load-archive log-dir) '()))
-  (reset! work-set (safe (load-work-set log-dir) {}))
-  (log "issue-archive:")
-  (doseq [{d :date} @issue-archive] (println " " d))
-  (log "work-set:" (sort (keys @work-set))))
+  (dosync
+   (ref-set issue-archive (safe (load-archive log-dir) '()))
+   (ref-set work-set (safe (load-work-set log-dir) {}))
+   (log "issue-archive:")
+   (doseq [{d :date} @issue-archive] (println " " d))
+   (log "work-set:" (sort (keys @work-set)))))
 
 
 
@@ -269,8 +267,6 @@
 
 ;;; update loops
 
-;; todo think about concurrency
-
 (defn fetch-and-update! [log-dir]
   (dosync
    (let [date (Date.)
@@ -282,7 +278,7 @@
          raw (get-web)
          stories (stories raw)
          prev-count (count @work-set)]
-     (swap! work-set update-work-set stories)
+     (alter work-set update-work-set stories)
      (log "updated working set." prev-count "->" (count @work-set))
      (backup-work-set log-dir "fetch-and-update!")
      (try-log (spit raw-file (prn-str raw))
@@ -294,8 +290,8 @@
   (dosync
    (let [work-set-new (work-set-filter-new @issue-archive @work-set)
          new-issue (work-set->issue work-set-new)]
-     (swap! issue-archive conj new-issue)
-     (reset! work-set {})
+     (alter issue-archive conj new-issue)
+     (ref-set work-set {})
      (backup-archive log-dir "cut-issue!")
      (backup-work-set log-dir "cut-issue!"))))
 
