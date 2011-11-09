@@ -6,25 +6,44 @@
         [ring.middleware.params :only [wrap-params]]
         [ring.middleware.stacktrace :only [wrap-stacktrace]]
         [ring.middleware.gzip :only [wrap-gzip]]
+        [hiccup.core :only [html]]
         [clojure.tools.cli :only [cli optional]])
   (:require [swank.swank]
-            [weekly-hn.scrape :as scrape])
+            [weekly-hn.scrape :as scrape]
+            [weekly-hn.site :as site])
   (:gen-class))
+
+(defn date-page [date-str full?]
+  (if-let [stories (scrape/issue->stories date-str)]
+    (html (site/issue-page date-str date-str
+                           stories (scrape/archive-index) full?))))
+
+(defn iip-page [full?]
+  (html (site/issue-page "issue in-progress" "iip"
+                         (scrape/issue-in-progress)
+                         (scrape/archive-index)
+                         full?)))
+
+(defn rationale-page [] (html (site/rationale-page (scrape/archive-index))))
+
+(defn index-page []
+  (let [index (scrape/archive-index)]
+    (if-let [latest (first index)]
+      (date-page latest false)
+      (iip-page false))))
 
 (defroutes base
   (GET "/love" [] (response "<3"))
-  (GET "/index" [] (response (prn-str (scrape/archive-index))))
-  (GET "/wip" [] (response (prn-str (scrape/issue-in-progress))))
-  (GET "/wip-take" [n] (response (prn-str (scrape/take-issue-in-progress (Integer. n)))))
-  (GET "/wip-drop" [n] (response (prn-str (scrape/drop-issue-in-progress (Integer. n)))))
-  (GET "/issue" [d] (response (-> d Long. scrape/issue->stories prn-str)))
-  (GET "/issue-take" [d n]
-       (response (prn-str (scrape/take-issue-stories (Long. d) (Integer. n)))))
-  (GET "/issue-drop" [d n]
-       (response (prn-str (scrape/drop-issue-stories (Long. d) (Integer. n)))))
-  (GET "/" [] (file-response "resources/public/index.html"))
+  (GET ["/:date" :date #"[0-9]{4}-[0-9]{2}-[0-9]{2}"] [date]
+       (response (date-page date false)))
+  (GET ["/:date.full" :date #"[0-9]{4}-[0-9]{2}-[0-9]{2}"] [date]
+       (response (date-page date true)))
+  (GET ["/iip"] [] (response (iip-page false)))
+  (GET ["/iip.full"] [] (response (iip-page true)))
+  (GET ["/rationale"] [] (response (rationale-page)))
+  (GET "/" [] (response (index-page)))
   (resources "/")
-  (ANY "*" [] (file-response "resources/public/index.html")))
+  (ANY "*" [] (response (index-page))))
 
 (def app
      (-> base

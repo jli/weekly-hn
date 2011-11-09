@@ -1,5 +1,6 @@
 (ns weekly-hn.scrape
-  (:use [net.cgrand.enlive-html :only [html-resource text select]])
+  (:use [weekly-hn.util :only [ms->date]]
+        [net.cgrand.enlive-html :only [html-resource text select]])
   (:import [java.util Calendar Date]
            [java.util.concurrent TimeUnit]))
 
@@ -16,6 +17,11 @@
 (defmacro try-log [exp msg]
   (let [e (gensym)]
     `(try ~exp (catch Exception ~e (println ~msg ":->" ~e)))))
+
+;; todo use this thing
+(defn log [& strs]
+  (apply println (str (.toString (java.util.Date.)) ">")
+         strs))
 
 (defn split-with-all [p? xs]
   [(filter p? xs)
@@ -127,6 +133,8 @@
 ;; issue type: {:date <j.u.date>, :stories <story coll>}
 ;; archive type: issue list
 
+(def spectatoritis-is-a-cancer 50)
+
 (defn index-stories [stories] (index-with :id stories))
 
 (defn update-work-set [work-set stories]
@@ -140,7 +148,7 @@
 
 ;; cut issue from current work-set!
 (defn work-set->issue [work-set]
-  {:date (.getTime (Date.))
+  {:date (ms->date (.getTime (Date.)))
    :stories (vals work-set)})
 
 ;; filters current work-set based on past archives.
@@ -191,14 +199,14 @@
         most-recent-issue (index-stories (:stories (first archive)))
         most-recent-stories-sort (map :id (sort-by :points > (:stories (first archive))))
         prev-new (set (keys (work-set-filter-new-just-identity archive work-set)))
-        new-new (work-set-filter-new-not-in-top-n archive work-set 50)
+        new-new (work-set-filter-new-not-in-top-n archive work-set spectatoritis-is-a-cancer)
         new-stories-sort (map :id (sort-by :points > (vals new-new)))
         only-new (filter #(not (prev-new (first %))) new-new)]
     (doseq [s (vals only-new)]
       (let [prev-p (:points (most-recent-issue (:id s)))]
         (println
          (format "%-50s %4d > %4d   inc %.2f %3d   rank %3d <- %2d"
-                 (apply str (take 50 (:title s)))
+                 (apply str (take spectatoritis-is-a-cancer (:title s)))
                  (:points s) prev-p
                  (float (/ (:points s) prev-p)) (- (:points s) prev-p)
                  (rank new-stories-sort (:id s))
@@ -206,7 +214,7 @@
                  ))))))
 
 (defn work-set-filter-new [archive work-set]
-  (work-set-filter-new-not-in-top-n archive work-set 50))
+  (work-set-filter-new-not-in-top-n archive work-set spectatoritis-is-a-cancer))
 
 
 
@@ -255,17 +263,9 @@
 ;; all stories
 (defn issue->stories [date]
   (let [[issue] (filter #(= date (:date %)) @issue-archive)
-        ;; drop unused data for mad speed? comments, user.
         stories (:stories issue)]
-    ;; sort so that {take,drop}-issue-stories do sensible things
-    (sort-by :points > stories)))
-
-
-;; partial stories (faster loading)
-(defn take-issue-in-progress [n] (take n (issue-in-progress)))
-(defn drop-issue-in-progress [n] (drop n (issue-in-progress)))
-(defn take-issue-stories [date n] (take n (issue->stories date)))
-(defn drop-issue-stories [date n] (drop n (issue->stories date)))
+    (when stories
+      (sort-by :points > stories))))
 
 
 
