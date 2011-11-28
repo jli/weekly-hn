@@ -1,10 +1,11 @@
 # weekly-hn
 
-FIXME: write description
+weekly hn regularly visits Hacker News and publishes the top 50
+stories once a week.
 
-## Usage
+A public copy is running here: http://hn.circularly.org/
 
-FIXME: write
+For more, see: http://hn.circularly.org/rationale
 
 ## License
 
