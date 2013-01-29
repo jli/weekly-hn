@@ -131,7 +131,7 @@ a[href=\"iip\"] { font-size: small; }"])
       " &copy; 2011 "
       [:a {:href "http://circularly.org/"} "jli"]
       " "
-      [:a {:href "http://sam.zoy.org/wtfpl/COPYING"} "WTFPL"]]]
+      [:a {:href "http://www.wtfpl.net/txt/copying/"} "WTFPL"]]]
     ]])
 
 (defn issue-page [title link stories issue-index full?]
